@@ -51,7 +51,7 @@ taken to load demo data is becoming noticeable.
 
 To build a container image pre-loaded with demo data, run:
 ```shell script
-DOCKER_BUILDKIT=1 docker build --target runtime --tag ofbiz-docker .
+DOCKER_BUILDKIT=1 docker build --target demo --tag ofbiz-docker .
 ```
 
 ## Container runtime options

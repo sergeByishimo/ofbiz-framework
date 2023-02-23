@@ -48,12 +48,12 @@
 # OFBIZ_HOST
 # Specify the hostname used to access OFBiz.
 # Used to populate the host-headers-allowed property in framework/security/config/security.properties.
-# Default: localhost
+# Default: default value of host-headers-allowed from framework/security/config/security.properties.
 #
 # OFBIZ_CONTENT_URL_PREFIX
 # Used to set the content.url.prefix.secure and content.url.prefix.standard properties in
 # framework/webapp/config/url.properties.
-# Default: https://${OFBIZ_HOST}
+# Default: <empty>>
 #
 # OFBIZ_ENABLE_AJP_PORT
 # Enable the AJP (Apache JServe Protocol) port to allow communication with OFBiz via a reverse proxy.
@@ -88,17 +88,13 @@ ofbiz_setup_env() {
   case "$OFBIZ_DATA_LOAD" in
   none | seed | demo) ;;
   *)
-    OFBIZ_DATA_LOAD="none"
+    OFBIZ_DATA_LOAD="seed"
     ;;
   esac
 
   OFBIZ_ADMIN_USER=${OFBIZ_ADMIN_USER:-admin}
 
   OFBIZ_ADMIN_PASSWORD=${OFBIZ_ADMIN_PASSWORD:-ofbiz}
-
-  OFBIZ_HOST=${OFBIZ_HOST:-localhost}
-
-  OFBIZ_CONTENT_URL_PREFIX=${OFBIZ_CONTENT_URL_PREFIX:-https://${OFBIZ_HOST}}
 }
 
 ###############################################################################
@@ -206,6 +202,8 @@ load_admin_user() {
 
 ###############################################################################
 # Apply any configuration changes required.
+# Changed property files need to be placed in /ofbiz/config so they appear earlier
+# in the classpath and override the build-time copies of the properties in ofbiz.jar.
 apply_configuration() {
   if [ ! -f "$CONTAINER_CONFIG_APPLIED" ]; then
     run_init_hooks /docker-entrypoint-before-config-applied.d/*
@@ -217,13 +215,17 @@ apply_configuration() {
        /ofbiz/framework/catalina/ofbiz-component.xml
     fi
 
-    sed --in-place \
-     "s/host-headers-allowed=.*/host-headers-allowed=${OFBIZ_HOST}/" framework/security/config/security.properties
+    if [ -n "$OFBIZ_HOST" ]; then
+      sed "s/host-headers-allowed=.*/host-headers-allowed=${OFBIZ_HOST}/" \
+        framework/security/config/security.properties > config/security.properties
+    fi
 
-    sed --in-place \
-     --expression="s#content.url.prefix.secure=.*#content.url.prefix.secure=${OFBIZ_CONTENT_URL_PREFIX}#;" \
-     --expression="s#content.url.prefix.standard=.*#content.url.prefix.standard=${OFBIZ_CONTENT_URL_PREFIX}#;" \
-     framework/webapp/config/url.properties
+    if [ -n "$OFBIZ_CONTENT_URL_PREFIX" ]; then
+      sed \
+      --expression="s#content.url.prefix.secure=.*#content.url.prefix.secure=${OFBIZ_CONTENT_URL_PREFIX}#;" \
+      --expression="s#content.url.prefix.standard=.*#content.url.prefix.standard=${OFBIZ_CONTENT_URL_PREFIX}#;" \
+      framework/webapp/config/url.properties > config/url.properties
+    fi
 
     touch "$CONTAINER_CONFIG_APPLIED"
     run_init_hooks /docker-entrypoint-after-config-applied.d/*

@@ -72,8 +72,8 @@ Environment variables are used in `docker-entrypoint.sh` to control configuratio
 |OFBIZ_ADMIN_USER | admin | Sets the username of the OFBIZ admin user. |
 |OFBIZ_ADMIN_PASSWORD | ofbiz | Sets the password of the OFBIZ admin user. |
 |OFBIZ_DATA_LOAD | seed | Determine what type of data loading is required. *none*: No data loading is perfomed. *seed*: Seed data is loaded. *demo*: Demo data is loaded. |
-|OFBIZ_HOST | localhost | Specify the hostname used to access OFBiz. |
-|OFBIZ_CONTENT_URL_PREFIX | https://${OFBIZ_HOST} | Used to set the content.url.prefix.secure and content.url.prefix.standard properties in `framework/webapp/config/url.properties`. |
+|OFBIZ_HOST | <empty> | Specify the hostname used to access OFBiz. If empty then the default value of host-headers-allowed from framework/security/config/security.properties is used. |
+|OFBIZ_CONTENT_URL_PREFIX | <empty> | Used to set the content.url.prefix.secure and content.url.prefix.standard properties in `framework/webapp/config/url.properties`. |
 |OFBIZ_ENABLE_AJP_PORT | *empty* | Enable the AJP (Apache JServe Protocol) port to allow communication with OFBiz via a reverse proxy. Enabled when this environment variable contains a non-empty value. |
 
 ### Hooks

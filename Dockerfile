@@ -45,6 +45,8 @@ WORKDIR /ofbiz
 RUN --mount=type=bind,from=builder,source=/builder/build/distributions/ofbiz.tar,target=/mnt/ofbiz.tar \
     ["tar", "--extract", "--strip-components=1", "--file=/mnt/ofbiz.tar"]
 
+RUN ["mkdir", "/ofbiz/runtime", "/ofbiz/config"]
+
 COPY docker/docker-entrypoint.sh .
 COPY docker/send_ofbiz_stop_signal.sh .
 
@@ -68,6 +70,7 @@ RUN touch /ofbiz/runtime/container_state/admin_loaded
 VOLUME ["/docker-entrypoint-before-config-applied.d", "/docker-entrypoint-after-config-applied.d", \
     "/docker-entrypoint-before-data-load.d", "/docker-entrypoint-after-data-load.d", \
     "/docker-entrypoint-additional-data.d"]
+VOLUME ["/ofbiz/config", "/ofbiz/runtime"]
 
 
 ###################################################################################
@@ -77,3 +80,4 @@ FROM runtimebase as runtime
 VOLUME ["/docker-entrypoint-before-config-applied.d", "/docker-entrypoint-after-config-applied.d", \
     "/docker-entrypoint-before-data-load.d", "/docker-entrypoint-after-data-load.d", \
     "/docker-entrypoint-additional-data.d"]
+VOLUME ["/ofbiz/config", "/ofbiz/runtime"]

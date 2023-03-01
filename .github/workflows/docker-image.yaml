@@ -41,13 +41,14 @@ jobs:
         tags: |
           # When this build is triggered by pusing a git tag, use the string following 'release' as the container tag
           # value.
-          type=match,pattern=release(.*)
-          type=match,pattern=exp(.*)
+          type=match,pattern=release(.*),group=1
+          type=match,pattern=exp(.*),group=1
           # When this build is triggered by pushing to a branch, use the branch name with the suffix '-snapshot' as the
           # container tag value.
           type=ref,event=branch,suffix=-snapshot
-          # For all build triggers, use the branch name with the triggering commit's short SHA as a container tag value.
-          type=raw,value={{branch}}-{{sha}}
+          # When this build is triggered by pushing to a branch, use the branch name with the commit's short SHA
+          # as the container tag value.
+          type=ref,event=branch,suffix=-{{sha}}
 
 #    - name: Build Docker image
 #      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc

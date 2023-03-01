@@ -13,10 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-# This workflow will check style in OFBiz with its plugins
-# For more information see: https://github.com/actions/setup-java
-
 name: Docker image build
 
 on:
@@ -42,18 +38,17 @@ jobs:
           # When this build is triggered by pusing a git tag, use the string following 'release' as the container tag
           # value.
           type=match,pattern=release(.*),group=1
-          type=match,pattern=exp(.*),group=1
-          # When this build is triggered by pushing to a branch, use the branch name with the suffix '-snapshot' as the
-          # container tag value.
-          type=ref,event=branch,suffix=-snapshot
+          # When this build is triggered by pushing to a branch, use the branch name with the suffix
+          # '-branch-snapshot' as the container tag value.
+          type=ref,event=branch,suffix=-branch-snapshot
           # When this build is triggered by pushing to a branch, use the branch name with the commit's short SHA
           # as the container tag value.
-          type=ref,event=branch,suffix=-{{sha}}
+          type=ref,event=branch,suffix=-branch-{{sha}}
 
-#    - name: Build Docker image
-#      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
-#      with:
-#        context: .
-#        push: false
-#        tags: ${{ steps.meta.outputs.tags }}
-#        labels: ${{ steps.meta.outputs.labels }}
+    - name: Build Docker image
+      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}

@@ -22,6 +22,7 @@ name: Docker image build
 on:
   push:
     branches: [ experimental-docker ]
+    tags:
 
 jobs:
   docker_build:
@@ -44,6 +45,8 @@ jobs:
           # When this build is triggered by pushing to a branch, use the branch name with the suffix '-snapshot' as the
           # container tag value.
           type=ref,event=branch,suffix=-snapshot
+          # For all build triggers, use the branch name with the triggering commit's short SHA as a container tag value.
+          type=raw,value={{branch}}-{{sha}}
 
 #    - name: Build Docker image
 #      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc

@@ -40,6 +40,7 @@ jobs:
           # When this build is triggered by pusing a git tag, use the string following 'release' as the container tag
           # value.
           type=match,pattern=release(.*)
+          type=match,pattern=exp(.*)
           # When this build is triggered by pushing to a branch, use the branch name with the suffix '-snapshot' as the
           # container tag value.
           type=ref,event=branch,suffix=-snapshot

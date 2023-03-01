@@ -33,14 +33,21 @@ jobs:
 
     - name: Extract metadata (tags, labels) for Docker
       id: meta
-      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
       with:
-        images: apache/ofbiz-framework
+        images: ghcr.io/apache/ofbiz-framework
+        tags: |
+          # When this build is triggered by pusing a git tag, use the string following 'release' as the container tag
+          # value.
+          type=match,pattern=release(.*)
+          # When this build is triggered by pushing to a branch, use the branch name with the suffix '-snapshot' as the
+          # container tag value.
+          type=ref,event=branch,suffix=-snapshot
 
-    - name: Build Docker image
-      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
-      with:
-        context: .
-        push: false
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+#    - name: Build Docker image
+#      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+#      with:
+#        context: .
+#        push: false
+#        tags: ${{ steps.meta.outputs.tags }}
+#        labels: ${{ steps.meta.outputs.labels }}

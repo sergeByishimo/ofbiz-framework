@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Docker image build
+name: Build and push docker images
 
 on:
   push:
@@ -29,30 +29,51 @@ jobs:
     - name: Check out OFBiz sources
       uses: actions/checkout@v3
 
-    - name: Extract metadata (tags, labels) for Docker
-      id: meta
-      uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
-      with:
-        images: ghcr.io/apache/ofbiz-framework
-        tags: |
-          # Extract container tag from git tag.
-          type=match,pattern=release(.*),group=1
-          # Build container tag based on branch name and string '-branch-snapshot'
-          type=ref,event=branch,suffix=-branch-snapshot
-          # Construct container tag based on branch name, string 'branch' and the short format of the commit SHA.
-          type=ref,event=branch,suffix=-branch-{{sha}}
-
     - name: Log in to the Container registry
-      uses: docker/login-action@v1
+      uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build Docker image
+    - name: Determine metadata (tags, labels) for Docker runtime build
+      id: runtimemeta
+      uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
+      with:
+        images: ghcr.io/apache/ofbiz
+        tags: |
+          # Extract container tag from git tag.
+          type=match,pattern=release(.*),group=1
+          # Build container tag based on branch name and string '-branch-snapshot'
+          type=ref,event=branch,suffix=-branch-snapshot,priority=650
+          # Construct container tag based on branch name, string 'branch' and the short format of the commit SHA.
+          type=ref,event=branch,suffix=-branch-{{sha}},priority=600
+
+    - name: Build runtime docker image
       uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
       with:
         context: .
+        target: runtime
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ steps.runtimemeta.outputs.tags }}
+        labels: ${{ steps.runtimemeta.outputs.labels }}
+
+    - name: Determine metadata (tags, labels) for Docker demo-preload build
+      id: demometa
+      uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96
+      with:
+        images: ghcr.io/apache/ofbiz
+        tags: |
+          type=match,pattern=release(.*),group=1,suffix=-preloaddemo
+          type=ref,event=branch,suffix=-branch-preloaddemo-snapshot,priority=650
+          type=ref,event=branch,suffix=-branch-preloaddemo-{{sha}},priority=600
+
+    - name: Build demo docker image
+      uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+      with:
+        context: .
+        target: demo
+        push: true
+        tags: ${{ steps.demometa.outputs.tags }}
+        labels: ${{ steps.demometa.outputs.labels }}
+

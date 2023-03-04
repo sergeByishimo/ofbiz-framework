@@ -71,6 +71,7 @@ RUN /ofbiz/bin/ofbiz --load-data
 RUN mkdir --parents /ofbiz/runtime/container_state
 RUN touch /ofbiz/runtime/container_state/data_loaded
 RUN touch /ofbiz/runtime/container_state/admin_loaded
+RUN touch /ofbiz/runtime/container_state/db_config_applied
 
 VOLUME ["/docker-entrypoint-hooks"]
 VOLUME ["/ofbiz/config", "/ofbiz/runtime", "/ofbiz/lib-extra"]

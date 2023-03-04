@@ -68,13 +68,14 @@ Environment variables are used in `docker-entrypoint.sh` to control configuratio
 
 |Environment variable | Default value | Description |
 |---|---|---|
-|OFBIZ_SKIP_INIT | *empty* | Any non-empty value will cause this script to skip any initialisation steps. |
+|OFBIZ_SKIP_INIT | *empty* | Any non-empty value will cause the docker-entrypoint.sh script to skip any initialisation steps. |
 |OFBIZ_ADMIN_USER | admin | Sets the username of the OFBIZ admin user. |
 |OFBIZ_ADMIN_PASSWORD | ofbiz | Sets the password of the OFBIZ admin user. |
 |OFBIZ_DATA_LOAD | seed | Determine what type of data loading is required. *none*: No data loading is perfomed. *seed*: Seed data is loaded. *demo*: Demo data is loaded. |
 |OFBIZ_HOST | <empty> | Specify the hostname used to access OFBiz. If empty then the default value of host-headers-allowed from framework/security/config/security.properties is used. |
 |OFBIZ_CONTENT_URL_PREFIX | <empty> | Used to set the content.url.prefix.secure and content.url.prefix.standard properties in `framework/webapp/config/url.properties`. |
 |OFBIZ_ENABLE_AJP_PORT | *empty* | Enable the AJP (Apache JServe Protocol) port to allow communication with OFBiz via a reverse proxy. Enabled when this environment variable contains a non-empty value. |
+|OFBIZ_SKIP_DB_DRIVER_DOWNLOAD | *empty* | Any non-empty value will cause the docker-entrypoint.sh script to skip downloading of any database drivers. |
 
 ### Hooks
 At various steps of initialisation, the `docker-entrypoint.sh` script will check for
@@ -87,14 +88,14 @@ be executed, otherwise it will be sourced.
 
 |Directory | Step |
 |---|---|
-| `/docker-entrypoint-before-config-applied.d` | Scripts processed before configuration, such as modifications to property files, are applied. |
-| `/docker-entrypoint-after-config-applied.d` | Scripts processed after configuration modifications have been applied. |
-| `/docker-entrypoint-before-data-load.d` | Scripts processed before data loading is executed. Could be used to apply modifications to data files.|
-| `/docker-entrypoint-after-data-load.d` | Scripts processed after data loading is executed. |
+| `/docker-entrypoint-hooks/before-config-applied.d` | Scripts processed before configuration, such as modifications to property files, are applied. |
+| `/docker-entrypoint-hooks/after-config-applied.d` | Scripts processed after configuration modifications have been applied. |
+| `/docker-entrypoint-hooks/before-data-load.d` | Scripts processed before data loading is executed. Could be used to apply modifications to data files.|
+| `/docker-entrypoint-hooks/after-data-load.d` | Scripts processed after data loading is executed. |
 
 ### Data files
 During the data loading step - but after either seed or demo data has been loaded - directory
-`/docker-entrypoint-additional-data.d` will be checked to see if any files are present.
+`/docker-entrypoint-hooks/additional-data.d` will be checked to see if any files are present.
 
 If files are present then the load-data functionality in OFBiz will be executed, specifying the
 `/docker-entrypoint-additional-data.d` directory as a data source. Any `.xml` files in this
@@ -102,6 +103,36 @@ directory will be treated as a data source and will be imported by the entity en
 
 This functionality can be used to pre-load OFBiz with user-specific data, such as 
 a chart of accounts.
+
+### Database
+By default the OFBiz container will use an internal Derby database, storing database related files
+in the /ofbiz/runtime volume.
+
+Use of an external database can be configured through environment variables.
+
+#### Derby
+To use the embedded Derby database, ensure all database related environment variables are unset.
+
+#### PostgreSQL
+To use a Postgres database set the `OFBIZ_POSTGRES_HOST` environment variable. 
+
+Environment variable | Default | Description 
+---|---|---
+OFBIZ_POSTGRES_HOST | *unset* | Hostname of the PostgreSQL database server. 
+OFBIZ_POSTGRES_OFBIZ_DB | ofbiz | Name of the *ofbiz* database.
+OFBIZ_POSTGRES_OFBIZ_USER | ofbiz | Username when connecting to the ofbiz database.
+OFBIZ_POSTGRES_OFBIZ_PASSWORD | ofbiz | Password when connecting to the ofbiz database.
+OFBIZ_POSTGRES_OLAP_DB | ofbizolap | Name of the *olap* database.
+OFBIZ_POSTGRES_OLAP_USER | ofbizolap | Username when connecting to the olap database.
+OFBIZ_POSTGRES_OLAP_PASSWORD | ofbizolap | Password when connecting to the olap database.
+OFBIZ_POSTGRES_TENANT_DB | ofbiztenant | Name of the *tenant* database.
+OFBIZ_POSTGRES_TENANT_USER | ofbiztenant | Username when connecting to the tenant database.
+OFBIZ_POSTGRES_TENANT_PASSWORD | ofbiztenant | Password when connecting to the tenant database.
+
+The docker-entrypoint.sh script will download a JDBC driver to access the PostgreSQL server and
+place the script in the `/ofbiz/lib-extra` volume. If you wish to skip this step then set the
+OFBIZ_SKIP_DB_DRIVER_DOWNLOAD environment variable to a non-empty value. This would be
+useful if you have already placed a suitable database driver in the `/ofbiz/lib-extra` volume.
 
 ## Examples of running the OFBiz container
 

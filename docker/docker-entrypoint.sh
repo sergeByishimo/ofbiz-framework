@@ -23,6 +23,7 @@
 # Triggers the loading of data and configuration of various OFBiz properties before
 # executing the command given as arguments to the script.
 #
+#
 # Behaviour controlled by environment variables:
 #
 # OFBIZ_SKIP_INIT
@@ -60,14 +61,43 @@
 # Enabled when this environment variable contains a non-empty value.
 # Default value: <empty>
 #
+# OFBIZ_SKIP_DB_DRIVER_DOWNLOAD
+# When connecting to databases other than the OFBiz embedded Derby database a suitable driver will be needed.
+# This script will attempt to download a suitable driver unless the OFBIZ_SKIP_DB_DRIVER_DOWNLOAD contains a non-empty
+# value.
+#
+# OFBIZ_POSTGRES_HOST
+# Sets the name of the PostgreSQL database host.
+# If OFBIZ_POSTGRES_HOST is non-empty, then the following OFBIZ_POSTGRES_* environment variables are used to configure
+# access to PostgreSQL databases.
+# OFBIZ_POSTGRES_OFBIZ_DB           Default: ofbiz
+# OFBIZ_POSTGRES_OFBIZ_USER         Default: ofbiz
+# OFBIZ_POSTGRES_OFBIZ_PASSWORD     Default: ofbiz
+# OFBIZ_POSTGRES_OLAP_DB            Default: ofbizolap
+# OFBIZ_POSTGRES_OLAP_USER          Default: ofbizolap
+# OFBIZ_POSTGRES_OLAP_PASSWORD      Default: ofbizolap
+# OFBIZ_POSTGRES_TENANT_DB          Default: ofbiztenant
+# OFBIZ_POSTGRES_TENANT_USER        Default: ofbiztenant
+# OFBIZ_POSTGRES_TENANT_PASSWORD    Default: ofbiztenant
+#
+#
 # Hooks are executed at the various stages of the initialisation process by executing scripts in the following
 # directories. Scripts must be executable and have the .sh extension:
 #
-# /docker-entrypoint-before-data-load.d
+# /docker-entrypoint-hooks/before-config-applied.d
+# Executed before any changes are applied to the OFBiz configuration files.
+#
+# /docker-entrypoint-hooks/after-config-applied.d
+# Executed after any changes are applied to the OFBiz configuration files.
+#
+# /docker-entrypoint-hooks/before-data-load.d
 # Executed before any data loading is about to be performed. Only executed if data loading is required.
 # Example usage would be to alter the data to be loaded.
 #
-# /docker-entrypoint-after-data-load.d
+# /docker-entrypoint-hooks/additional-data.d
+# Any data files (.xml files) in this directory are loaded after seed/demo data.
+#
+# /docker-entrypoint-hooks/after-data-load.d
 # Executed after any data loading has been performed. Only executed if data loading was required.
 #
 ###############################################################################
@@ -80,6 +110,9 @@ CONTAINER_STATE_DIR="/ofbiz/runtime/container_state"
 CONTAINER_DATA_LOADED="$CONTAINER_STATE_DIR/data_loaded"
 CONTAINER_ADMIN_LOADED="$CONTAINER_STATE_DIR/admin_loaded"
 CONTAINER_CONFIG_APPLIED="$CONTAINER_STATE_DIR/config_applied"
+CONTAINER_DB_CONFIG_APPLIED="$CONTAINER_STATE_DIR/db_config_applied"
+
+POSTGRES_DRIVER_URL="https://jdbc.postgresql.org/download/postgresql-42.5.4.jar"
 
 ###############################################################################
 # Validate and apply defaults to any environment variables used by this script.
@@ -95,6 +128,18 @@ ofbiz_setup_env() {
   OFBIZ_ADMIN_USER=${OFBIZ_ADMIN_USER:-admin}
 
   OFBIZ_ADMIN_PASSWORD=${OFBIZ_ADMIN_PASSWORD:-ofbiz}
+
+  OFBIZ_POSTGRES_OFBIZ_DB=${OFBIZ_POSTGRES_OFBIZ_DB:-ofbiz}
+  OFBIZ_POSTGRES_OFBIZ_USER=${OFBIZ_POSTGRES_OFBIZ_USER:-ofbiz}
+  OFBIZ_POSTGRES_OFBIZ_PASSWORD=${OFBIZ_POSTGRES_OFBIZ_PASSWORD:-ofbiz}
+
+  OFBIZ_POSTGRES_OLAP_DB=${OFBIZ_POSTGRES_OLAP_DB:-ofbizolap}
+  OFBIZ_POSTGRES_OLAP_USER=${OFBIZ_POSTGRES_OLAP_USER:-ofbizolap}
+  OFBIZ_POSTGRES_OLAP_PASSWORD=${OFBIZ_POSTGRES_OLAP_PASSWORD:-ofbizolap}
+
+  OFBIZ_POSTGRES_TENANT_DB=${OFBIZ_POSTGRES_TENANT_DB:-ofbiztenant}
+  OFBIZ_POSTGRES_TENANT_USER=${OFBIZ_POSTGRES_TENANT_USER:-ofbiztenant}
+  OFBIZ_POSTGRES_TENANT_PASSWORD=${OFBIZ_POSTGRES_TENANT_PASSWORD:-ofbiztenant}
 }
 
 ###############################################################################
@@ -140,7 +185,7 @@ run_init_hooks() {
 # If required, load data into OFBiz.
 load_data() {
   if [ ! -f "$CONTAINER_DATA_LOADED" ]; then
-    run_init_hooks /docker-entrypoint-before-data-load.d/*
+    run_init_hooks /docker-entrypoint-hooks/before-data-load.d/*
 
     case "$OFBIZ_DATA_LOAD" in
     none) ;;
@@ -157,13 +202,13 @@ load_data() {
     esac
 
     # Load any additional data files provided.
-    if [ -z $(find /docker-entrypoint-additional-data.d/ -prune -empty) ]; then
-      /ofbiz/bin/ofbiz --load-data dir=/docker-entrypoint-additional-data.d
+    if [ -z $(find /docker-entrypoint-hooks/additional-data.d/ -prune -empty) ]; then
+      /ofbiz/bin/ofbiz --load-data dir=/docker-entrypoint-hooks/additional-data.d
     fi
 
     touch "$CONTAINER_DATA_LOADED"
 
-    run_init_hooks /docker-entrypoint-after-data-load.d/*
+    run_init_hooks /docker-entrypoint-hooks/after-data-load.d/*
   fi
 }
 
@@ -206,29 +251,57 @@ load_admin_user() {
 # in the classpath and override the build-time copies of the properties in ofbiz.jar.
 apply_configuration() {
   if [ ! -f "$CONTAINER_CONFIG_APPLIED" ]; then
-    run_init_hooks /docker-entrypoint-before-config-applied.d/*
+    run_init_hooks /docker-entrypoint-hooks/before-config-applied.d/*
 
     if [ -n "$OFBIZ_ENABLE_AJP_PORT" ]; then
       # Configure tomcat to listen for AJP connections on all interfaces within the container.
       sed --in-place \
-       '/<property name="ajp-connector" value="connector">/ a <property name="address" value="0.0.0.0"/>'  \
-       /ofbiz/framework/catalina/ofbiz-component.xml
+        '/<property name="ajp-connector" value="connector">/ a <property name="address" value="0.0.0.0"/>' \
+        /ofbiz/framework/catalina/ofbiz-component.xml
     fi
 
     if [ -n "$OFBIZ_HOST" ]; then
       sed "s/host-headers-allowed=.*/host-headers-allowed=${OFBIZ_HOST}/" \
-        framework/security/config/security.properties > config/security.properties
+        framework/security/config/security.properties >config/security.properties
     fi
 
     if [ -n "$OFBIZ_CONTENT_URL_PREFIX" ]; then
       sed \
-      --expression="s#content.url.prefix.secure=.*#content.url.prefix.secure=${OFBIZ_CONTENT_URL_PREFIX}#;" \
-      --expression="s#content.url.prefix.standard=.*#content.url.prefix.standard=${OFBIZ_CONTENT_URL_PREFIX}#;" \
-      framework/webapp/config/url.properties > config/url.properties
+        --expression="s#content.url.prefix.secure=.*#content.url.prefix.secure=${OFBIZ_CONTENT_URL_PREFIX}#;" \
+        --expression="s#content.url.prefix.standard=.*#content.url.prefix.standard=${OFBIZ_CONTENT_URL_PREFIX}#;" \
+        framework/webapp/config/url.properties >config/url.properties
     fi
 
     touch "$CONTAINER_CONFIG_APPLIED"
-    run_init_hooks /docker-entrypoint-after-config-applied.d/*
+    run_init_hooks /docker-entrypoint-hooks/after-config-applied.d/*
+  fi
+}
+
+###############################################################################
+# Set up the connection to the OFBiz database.
+configure_database() {
+  if [ ! -f "$CONTAINER_DB_CONFIG_APPLIED" ]; then
+    if [ -n "$OFBIZ_POSTGRES_HOST" ]; then
+      sed \
+        --expression="s/@HOST@/$OFBIZ_POSTGRES_HOST/;" \
+        --expression="s/@OFBIZ_DB@/$OFBIZ_POSTGRES_OFBIZ_DB/;" \
+        --expression="s/@OFBIZ_USERNAME@/$OFBIZ_POSTGRES_OFBIZ_USER/;" \
+        --expression="s/@OFBIZ_PASSWORD@/$OFBIZ_POSTGRES_OFBIZ_PASSWORD/;" \
+        --expression="s/@OLAP_DB@/$OFBIZ_POSTGRES_OLAP_DB/;" \
+        --expression="s/@OLAP_USERNAME@/$OFBIZ_POSTGRES_OLAP_USER/;" \
+        --expression="s/@OLAP_PASSWORD@/$OFBIZ_POSTGRES_OLAP_PASSWORD/;" \
+        --expression="s/@TENANT_DB@/$OFBIZ_POSTGRES_TENANT_DB/;" \
+        --expression="s/@TENANT_USERNAME@/$OFBIZ_POSTGRES_TENANT_USER/;" \
+        --expression="s/@TENAN_PASSWORD@/$OFBIZ_POSTGRES_TENANT_PASSWORD/;" \
+        templates/postgres-entityengine.xml > config/entityengine.xml
+
+      if [ -z "$OFBIZ_SKIP_DB_DRIVER_DOWNLOAD" ]; then
+        echo "Retrieving PostgreSQL driver from $POSTGRES_DRIVER_URL"
+        wget --verbose --directory-prefix=lib-extra "$POSTGRES_DRIVER_URL"
+      fi
+    fi
+
+    touch "$CONTAINER_DB_CONFIG_APPLIED"
   fi
 }
 
@@ -242,6 +315,7 @@ _main() {
   if [ -z "$OFBIZ_SKIP_INIT" ]; then
     ofbiz_setup_env
     create_ofbiz_runtime_directories
+    configure_database
     apply_configuration
     load_data
     load_admin_user
@@ -259,4 +333,3 @@ _main() {
 }
 
 _main "$@"
-

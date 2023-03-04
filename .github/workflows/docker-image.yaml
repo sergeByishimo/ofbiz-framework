@@ -23,7 +23,7 @@ on:
 
 jobs:
   docker_build:
-    name: Build OFBiz docker container image
+    name: Build and push OFBiz docker container images
     runs-on: ubuntu-latest
     steps:
     - name: Check out OFBiz sources
@@ -49,7 +49,7 @@ jobs:
           # Construct container tag based on branch name, string 'branch' and the short format of the commit SHA.
           type=ref,event=branch,suffix=-branch-{{sha}},priority=600
 
-    - name: Build runtime docker image
+    - name: Build and push runtime docker image
       uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
       with:
         context: .
@@ -68,7 +68,7 @@ jobs:
           type=ref,event=branch,suffix=-branch-preloaddemo-snapshot,priority=650
           type=ref,event=branch,suffix=-branch-preloaddemo-{{sha}},priority=600
 
-    - name: Build demo docker image
+    - name: Build and push demo docker image
       uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
       with:
         context: .
